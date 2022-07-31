@@ -227,6 +227,9 @@ func getS3Metadata(metadataString string) map[string]string {
 
 // Can be used for overwrite scenarios.
 func createContainer(container string) {
+	if container != "" {
+		return
+	}
 	u, err := url.Parse(container)
 
 	if err != nil {

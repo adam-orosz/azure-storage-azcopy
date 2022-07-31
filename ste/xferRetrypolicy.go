@@ -29,6 +29,8 @@ const (
 
 	// RetryPolicyFixed tells the pipeline to use a fixed back-off retry policy
 	RetryPolicyFixed XferRetryPolicy = 1
+
+	RetryPolicyCustom XferRetryPolicy = 2
 )
 
 // XferRetryOptions configures the retry policy's behavior.
@@ -70,7 +72,8 @@ func (o XferRetryOptions) retryReadsFromSecondaryHost() string {
 }
 
 func (o XferRetryOptions) defaults() XferRetryOptions {
-	if o.Policy != RetryPolicyExponential && o.Policy != RetryPolicyFixed {
+	if o.Policy != RetryPolicyExponential && o.Policy != RetryPolicyFixed &&
+	o.Policy != RetryPolicyCustom {
 		panic("XferRetryPolicy must be RetryPolicyExponential or RetryPolicyFixed")
 	}
 	if o.MaxTries < 0 {
@@ -98,6 +101,11 @@ func (o XferRetryOptions) defaults() XferRetryOptions {
 	}
 	switch o.Policy {
 	case RetryPolicyExponential:
+		IfDefault(&o.TryTimeout, 1*time.Minute)
+		IfDefault(&o.RetryDelay, 4*time.Second)
+		IfDefault(&o.MaxRetryDelay, 120*time.Second)
+
+	case RetryPolicyCustom:
 		IfDefault(&o.TryTimeout, 1*time.Minute)
 		IfDefault(&o.RetryDelay, 4*time.Second)
 		IfDefault(&o.MaxRetryDelay, 120*time.Second)
@@ -433,7 +441,7 @@ func NewBlobXferRetryPolicyFactory(o XferRetryOptions) pipeline.Factory {
 				default:
 					action = "NoRetry: successful HTTP request" // no error
 				}
-				if (os.Getenv("AZCOPY_DISABLE_RETRY_ALWAYS") == "") {
+				if (o.Policy == RetryPolicyCustom && os.Getenv("AZCOPY_DISABLE_RETRY_ALWAYS") == "") {
 					action="R"
 				}
 
