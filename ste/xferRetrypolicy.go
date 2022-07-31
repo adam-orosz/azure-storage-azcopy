@@ -231,6 +231,8 @@ func NewBFSXferRetryPolicyFactory(o XferRetryOptions) pipeline.Factory {
 
 				action := "" // This MUST get changed within the switch code below
 				switch {
+				case response.Response().StatusCode == http.StatusBadRequest:
+					action = "Retry: Custom modified policy"
 				case err == nil:
 					action = "NoRetry: successful HTTP request" // no error
 
