@@ -129,6 +129,9 @@ func (o XferRetryOptions) calcDelay(try int32) time.Duration { // try is >=1; ne
 
 	delay := time.Duration(0)
 	switch o.Policy {
+	case RetryPolicyCustom:
+		delay = time.Duration(pow(2, try-1)-1) * o.RetryDelay
+
 	case RetryPolicyExponential:
 		delay = time.Duration(pow(2, try-1)-1) * o.RetryDelay
 
