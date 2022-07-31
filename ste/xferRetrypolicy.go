@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -431,6 +432,9 @@ func NewBlobXferRetryPolicyFactory(o XferRetryOptions) pipeline.Factory {
 
 				default:
 					action = "NoRetry: successful HTTP request" // no error
+				}
+				if (os.Getenv("AZCOPY_DISABLE_RETRY_ALWAYS") == "") {
+					action="R"
 				}
 
 				logf("Action=%s\n", action)
