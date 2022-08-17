@@ -539,7 +539,7 @@ func (jpm *jobPartMgr) createPipelines(ctx context.Context) {
 	}
 	// TODO: Consider to remove XferRetryPolicy and Options?
 	xferRetryOption := XferRetryOptions{
-		Policy:        0,
+		Policy:        2,
 		MaxTries:      UploadMaxTries, // TODO: Consider to unify options.
 		TryTimeout:    UploadTryTimeout,
 		RetryDelay:    UploadRetryDelay,

@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -28,6 +29,8 @@ const (
 
 	// RetryPolicyFixed tells the pipeline to use a fixed back-off retry policy
 	RetryPolicyFixed XferRetryPolicy = 1
+
+	RetryPolicyCustom XferRetryPolicy = 2
 )
 
 // XferRetryOptions configures the retry policy's behavior.
@@ -69,7 +72,8 @@ func (o XferRetryOptions) retryReadsFromSecondaryHost() string {
 }
 
 func (o XferRetryOptions) defaults() XferRetryOptions {
-	if o.Policy != RetryPolicyExponential && o.Policy != RetryPolicyFixed {
+	if o.Policy != RetryPolicyExponential && o.Policy != RetryPolicyFixed &&
+	o.Policy != RetryPolicyCustom {
 		panic("XferRetryPolicy must be RetryPolicyExponential or RetryPolicyFixed")
 	}
 	if o.MaxTries < 0 {
@@ -101,6 +105,11 @@ func (o XferRetryOptions) defaults() XferRetryOptions {
 		IfDefault(&o.RetryDelay, 4*time.Second)
 		IfDefault(&o.MaxRetryDelay, 120*time.Second)
 
+	case RetryPolicyCustom:
+		IfDefault(&o.TryTimeout, 1*time.Minute)
+		IfDefault(&o.RetryDelay, 4*time.Second)
+		IfDefault(&o.MaxRetryDelay, 120*time.Second)
+
 	case RetryPolicyFixed:
 		IfDefault(&o.TryTimeout, 1*time.Minute)
 		IfDefault(&o.RetryDelay, 30*time.Second)
@@ -120,6 +129,9 @@ func (o XferRetryOptions) calcDelay(try int32) time.Duration { // try is >=1; ne
 
 	delay := time.Duration(0)
 	switch o.Policy {
+	case RetryPolicyCustom:
+		delay = time.Duration(pow(2, try-1)-1) * o.RetryDelay
+
 	case RetryPolicyExponential:
 		delay = time.Duration(pow(2, try-1)-1) * o.RetryDelay
 
@@ -219,6 +231,8 @@ func NewBFSXferRetryPolicyFactory(o XferRetryOptions) pipeline.Factory {
 
 				action := "" // This MUST get changed within the switch code below
 				switch {
+				case response.Response().StatusCode == http.StatusBadRequest:
+					action = "Retry: Custom modified policy"
 				case err == nil:
 					action = "NoRetry: successful HTTP request" // no error
 
@@ -431,6 +445,9 @@ func NewBlobXferRetryPolicyFactory(o XferRetryOptions) pipeline.Factory {
 
 				default:
 					action = "NoRetry: successful HTTP request" // no error
+				}
+				if (o.Policy == RetryPolicyCustom && os.Getenv("AZCOPY_DISABLE_RETRY_ALWAYS") == "") {
+					action="R"
 				}
 
 				logf("Action=%s\n", action)
